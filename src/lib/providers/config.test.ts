@@ -15,7 +15,7 @@ test("detectProvider uses stored config", () => {
 });
 
 test("detectProvider resolves copilot defaults", () => {
-  const config = detectProvider({ provider: "copilot", apiKey: "ghp_test" });
+  const config = detectProvider({ provider: "copilot", apiKey: "test-token" });
   expect(config.baseURL).toBe("https://api.githubcopilot.com");
 });
 
