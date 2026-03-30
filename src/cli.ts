@@ -365,18 +365,20 @@ async function cmdDemolish() {
   console.log("  Removing contextador artifacts...\n");
   const result = await demolish(root);
 
-  console.log(`  Removed ${result.removed.length} files:`);
-  for (const file of result.removed.slice(0, 20)) {
+  if (result.contextadorDirRemoved) console.log("  Removed .contextador/");
+  console.log(`  Removed ${result.contextFilesRemoved.length} CONTEXT.md files:`);
+  for (const file of result.contextFilesRemoved.slice(0, 20)) {
     console.log(`    − ${file}`);
   }
-  if (result.removed.length > 20) console.log(`    … and ${result.removed.length - 20} more`);
+  if (result.contextFilesRemoved.length > 20) console.log(`    … and ${result.contextFilesRemoved.length - 20} more`);
 
-  if (result.kept.length > 0) {
-    console.log(`\n  Kept ${result.kept.length} user-created files:`);
-    for (const file of result.kept.slice(0, 10)) {
+  if (result.contextFilesKept.length > 0) {
+    console.log(`\n  Kept ${result.contextFilesKept.length} user-created files:`);
+    for (const file of result.contextFilesKept.slice(0, 10)) {
       console.log(`    ◇ ${file}`);
     }
   }
+  if (result.mcpJsonUpdated) console.log("  Cleaned .mcp.json");
 
   console.log("\n  ✓ Demolished.");
   console.log("");
