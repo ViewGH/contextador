@@ -1,0 +1,11 @@
+[global]
+server_name = "{{SERVER_NAME}}"
+database_path = "/var/lib/conduwuit"
+database_backend = "rocksdb"
+port = 6167
+address = "0.0.0.0"
+max_request_size = 20_000_000
+allow_registration = true
+allow_federation = false
+trusted_servers = []
+log = "warn,conduit=info"

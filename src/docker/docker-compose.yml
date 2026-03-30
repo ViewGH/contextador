@@ -1,0 +1,22 @@
+version: "3"
+
+services:
+  operator:
+    image: girlbossceo/conduwuit:latest
+    container_name: contextador-operator
+    restart: unless-stopped
+    ports:
+      - "${OPERATOR_PORT:-6167}:6167"
+    volumes:
+      - operator-data:/var/lib/conduwuit
+      - ./conduwuit.toml:/etc/conduwuit/conduwuit.toml:ro
+    environment:
+      CONDUWUIT_CONFIG: /etc/conduwuit/conduwuit.toml
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:6167/_matrix/client/versions"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  operator-data:
