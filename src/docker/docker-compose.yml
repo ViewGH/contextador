@@ -9,7 +9,7 @@ services:
       - "${OPERATOR_PORT:-6167}:6167"
     volumes:
       - operator-data:/var/lib/conduwuit
-      - ./conduwuit.toml:/etc/conduwuit/conduwuit.toml:ro
+      - ./conduwuit.generated.toml:/etc/conduwuit/conduwuit.toml:ro
     environment:
       CONDUWUIT_CONFIG: /etc/conduwuit/conduwuit.toml
     healthcheck:
