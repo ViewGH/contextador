@@ -1,0 +1,6 @@
+FROM jadedblueeyes/conduwuit:latest
+LABEL org.opencontainers.image.title="Contextador Operator"
+LABEL org.opencontainers.image.description="Mainframe server for Contextador multi-agent context sharing"
+LABEL org.opencontainers.image.vendor="View AI"
+# Set internal config path so users never need to know the underlying engine
+ENV CONDUWUIT_CONFIG=/config/operator.toml

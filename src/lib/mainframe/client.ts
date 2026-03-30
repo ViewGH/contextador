@@ -1,6 +1,6 @@
 /**
  * Matrix client for the mainframe multi-agent sharing layer.
- * Uses raw fetch against Conduwuit — no Matrix SDK.
+ * Uses raw fetch against the Operator server (Matrix protocol) — no SDK needed.
  */
 
 function randomId(len = 4): string {

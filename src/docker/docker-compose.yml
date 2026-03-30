@@ -1,17 +1,16 @@
+# Operator — Contextador's Mainframe server
 version: "3"
 
 services:
   operator:
-    image: girlbossceo/conduwuit:latest
+    image: ghcr.io/patientpassllc/operator:latest
     container_name: contextador-operator
     restart: unless-stopped
     ports:
       - "${OPERATOR_PORT:-6167}:6167"
     volumes:
-      - operator-data:/var/lib/conduwuit
-      - ./conduwuit.generated.toml:/etc/conduwuit/conduwuit.toml:ro
-    environment:
-      CONDUWUIT_CONFIG: /etc/conduwuit/conduwuit.toml
+      - operator-data:/data/operator
+      - ./operator.generated.toml:/config/operator.toml:ro
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:6167/_matrix/client/versions"]
       interval: 30s

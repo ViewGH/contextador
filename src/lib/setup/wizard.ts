@@ -218,10 +218,10 @@ async function setupDockerOperator(): Promise<GlobalConfig["mainframe"]> {
     const dockerDir = resolve(import.meta.dir, "../../docker");
 
     // Generate config from template
-    const templatePath = join(dockerDir, "conduwuit.toml");
+    const templatePath = join(dockerDir, "operator.toml");
     const template = await readFile(templatePath, "utf-8");
     const config = template.replace("{{SERVER_NAME}}", "contextador.local");
-    await writeFile(join(dockerDir, "conduwuit.generated.toml"), config);
+    await writeFile(join(dockerDir, "operator.generated.toml"), config);
 
     const composePath = join(dockerDir, "docker-compose.yml");
     const proc = Bun.spawn(["docker", "compose", "-f", composePath, "up", "-d"], {
