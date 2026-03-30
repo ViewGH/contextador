@@ -47,8 +47,18 @@ async function cmdInit() {
 
   const globalConfig = await loadGlobalConfig();
   const projectConfig = await loadConfig(root);
+
+  // Inherit mainframe settings from global config if project config is fresh (defaults)
+  if (globalConfig?.mainframe?.enabled && !projectConfig.mainframe.enabled) {
+    projectConfig.mainframe.enabled = globalConfig.mainframe.enabled;
+    projectConfig.mainframe.operatorUrl = globalConfig.mainframe.operatorUrl ?? projectConfig.mainframe.operatorUrl;
+  }
+
   const ctxDir = join(root, ".contextador");
   await mkdir(ctxDir, { recursive: true });
+
+  // Save project config with inherited settings
+  await saveConfig(root, projectConfig);
 
   // Parse -local flag (may include a URL argument)
   const localFlag = args.find(a => a === "-local" || a === "--local");
