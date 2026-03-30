@@ -3,3 +3,6 @@ dist/
 .contextador/
 .DS_Store
 *.log
+.env
+.env.*
+.env.local
