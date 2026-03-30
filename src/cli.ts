@@ -387,6 +387,155 @@ async function cmdDemolish() {
   console.log("");
 }
 
+async function cmdWebhook() {
+  const subCmd = args[1];
+
+  if (subCmd === "start") {
+    banner();
+    const { startWebhookServer } = await import("./lib/github/webhook");
+    const { loadConfig } = await import("./lib/core/projectconfig");
+
+    const config = await loadConfig(root);
+
+    // Allow port override via --port flag
+    const portFlag = args.find(a => a.startsWith("--port="));
+    const portOverride = portFlag ? parseInt(portFlag.split("=")[1], 10) : undefined;
+
+    // Allow secret override via --secret flag
+    const secretFlag = args.find(a => a.startsWith("--secret="));
+    const secretOverride = secretFlag ? secretFlag.split("=")[1] : undefined;
+
+    const overrides: Record<string, any> = {};
+    if (portOverride) overrides.port = portOverride;
+    if (secretOverride) overrides.secret = secretOverride;
+
+    heading("Webhook Server");
+
+    const { server, port } = await startWebhookServer(root, overrides);
+
+    success(`Listening on port ${c.bold(String(port))}`);
+    info(`Health check: ${c.lpurple(`http://localhost:${port}/health`)}`);
+    info(`Webhook URL:  ${c.lpurple(`http://localhost:${port}/webhook`)}`);
+    console.log("");
+    info(`Watching branches: ${c.white(config.webhook?.branches?.join(", ") || "main, master")}`);
+    if (config.webhook?.secret || secretOverride) {
+      info(`HMAC verification: ${c.green("enabled")}`);
+    } else {
+      warn("No webhook secret configured — anyone can trigger sweeps.");
+      info(`Set one with: ${c.purple("contextador webhook start --secret=<your-secret>")}`);
+    }
+    console.log("");
+    info(`${c.gray("Press Ctrl+C to stop")}`);
+
+    // Keep alive
+    await new Promise(() => {});
+  } else if (subCmd === "events") {
+    banner();
+    const { getWebhookEvents } = await import("./lib/github/webhook");
+
+    const limit = parseInt(args[2] || "10", 10);
+    const events = await getWebhookEvents(root, limit);
+
+    heading("Recent Webhook Events");
+
+    if (events.length === 0) {
+      info("No events recorded yet.");
+    } else {
+      for (const event of events) {
+        const status = event.swept ? c.green("swept") : c.gray("skipped");
+        const scopes = event.triage.affectedScopes.length > 0
+          ? ` → ${event.triage.affectedScopes.join(", ")}`
+          : "";
+        console.log(`  ${c.gray(event.receivedAt.slice(0, 19))} ${c.white(event.branch)} ${c.purple(`+${event.commits}`)} ${status}${scopes}`);
+        console.log(`    ${c.gray(event.triage.reason)}`);
+      }
+    }
+    console.log("");
+  } else if (subCmd === "test") {
+    banner();
+    const { triagePush } = await import("./lib/github/triage");
+    const { loadConfig } = await import("./lib/core/projectconfig");
+
+    heading("Triage Test");
+    info("Simulating a push event from recent git history...");
+
+    // Get last 2 commits to simulate a push
+    const proc = Bun.spawn(["git", "log", "-2", "--format=%H", "--no-merges"], {
+      cwd: root, stdout: "pipe", stderr: "pipe",
+    });
+    const output = await new Response(proc.stdout).text();
+    await proc.exited;
+    const shas = output.trim().split("\n");
+
+    if (shas.length < 2) {
+      error("Need at least 2 commits to simulate a push.");
+      process.exit(1);
+    }
+
+    const afterSha = shas[0];
+    const beforeSha = shas[1];
+
+    // Get changed files between the two commits
+    const diffProc = Bun.spawn(
+      ["git", "diff", "--name-status", `${beforeSha}...${afterSha}`],
+      { cwd: root, stdout: "pipe", stderr: "pipe" },
+    );
+    const diffOutput = await new Response(diffProc.stdout).text();
+    await diffProc.exited;
+
+    const commits = [{
+      id: afterSha,
+      message: "",
+      timestamp: new Date().toISOString(),
+      added: [] as string[],
+      modified: [] as string[],
+      removed: [] as string[],
+    }];
+
+    for (const line of diffOutput.trim().split("\n")) {
+      const [status, ...fileParts] = line.split("\t");
+      const file = fileParts.join("\t");
+      if (!file) continue;
+      if (status === "A") commits[0].added.push(file);
+      else if (status === "D") commits[0].removed.push(file);
+      else commits[0].modified.push(file);
+    }
+
+    const payload = {
+      ref: "refs/heads/main",
+      before: beforeSha,
+      after: afterSha,
+      repository: { full_name: "test/test", name: "test", default_branch: "main" },
+      commits,
+      head_commit: commits[0],
+      pusher: { name: "test", email: "test@test.com" },
+      forced: false,
+    };
+
+    step("Triaging...");
+    const result = await triagePush(root, payload);
+    stepDone();
+
+    console.log("");
+    stat("Should update", result.shouldUpdate ? c.green("YES") : c.gray("NO"));
+    stat("Files changed", result.filesChanged);
+    stat("Lines changed", result.linesChanged);
+    stat("Affected scopes", result.affectedScopes.length > 0 ? result.affectedScopes.join(", ") : "(none)");
+    console.log("");
+    info(`Reason: ${c.white(result.reason)}`);
+    console.log("");
+  } else {
+    banner();
+    heading("Webhook Commands");
+    console.log(`  ${c.bold("contextador webhook start")}    ${c.gray("Start the webhook listener")}`);
+    console.log(`    ${c.purple("--port=9471")}                ${c.gray("Override listen port")}`);
+    console.log(`    ${c.purple("--secret=<s>")}               ${c.gray("Set HMAC verification secret")}`);
+    console.log(`  ${c.bold("contextador webhook events")}   ${c.gray("Show recent webhook events")}`);
+    console.log(`  ${c.bold("contextador webhook test")}     ${c.gray("Simulate a push with recent commits")}`);
+    console.log("");
+  }
+}
+
 function cmdHelp() {
   banner();
   console.log(`  ${c.bold("Usage:")} contextador ${c.purple("<command>")} ${c.gray("[flags]")}\n`);
@@ -399,6 +548,7 @@ function cmdHelp() {
   console.log(`    ${c.bold("status")}       ${c.gray("Show CONTEXT.md counts, provider, mainframe status")}`);
   console.log(`    ${c.bold("query")} ${c.purple("<q>")}    ${c.gray("Route a query and show matching scopes")}`);
   console.log(`    ${c.bold("configure")}    ${c.gray("Interactive project config editor")}`);
+  console.log(`    ${c.bold("webhook")}      ${c.gray("GitHub push webhook — auto-update context on push")}`);
   console.log(`    ${c.bold("demolish")}     ${c.gray("Remove all contextador artifacts from the project")}`);
   console.log(`    ${c.bold("help")}         ${c.gray("Show this help message")}`);
   console.log("");
@@ -413,6 +563,7 @@ switch (command) {
   case "status":    await cmdStatus(); break;
   case "query":     await cmdQuery(); break;
   case "configure": await cmdConfigure(); break;
+  case "webhook":   await cmdWebhook(); break;
   case "demolish":  await cmdDemolish(); break;
   case "help":
   case "--help":

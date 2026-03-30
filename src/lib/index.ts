@@ -26,8 +26,13 @@ export { buildBroadcast, buildRequest, parseBroadcast, isBroadcast, isRequest } 
 export { findMatchingBroadcast } from "./mainframe/dedup";
 export { buildSummary, serializeSummary, summarizeIfNeeded } from "./mainframe/summarizer";
 
+// GitHub
+export { startWebhookServer, getWebhookDefaults, getWebhookEvents } from "./github/webhook";
+export { triagePush, triageScope, extractChangedFiles, filterTrivialFiles, mapFilesToScopes } from "./github/triage";
+
 // Setup
 export { runSetup, loadGlobalConfig } from "./setup/wizard";
 
 // Types
 export type * from "./core/types";
+export type { GitHubPushPayload, WebhookConfig, TriageResult, WebhookEvent } from "./github/types";

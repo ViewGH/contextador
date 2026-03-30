@@ -9,6 +9,13 @@ export interface MainframeSettings {
   dailyTokenLimit: number;
 }
 
+export interface WebhookSettings {
+  enabled: boolean;
+  port: number;
+  secret: string;
+  branches: string[];
+}
+
 export interface ProjectConfig {
   modelServerUrl: string;
   minFiles: number;
@@ -18,6 +25,7 @@ export interface ProjectConfig {
   staleCommitThreshold: number;
   staleDaysThreshold: number;
   mainframe: MainframeSettings;
+  webhook: WebhookSettings;
 }
 
 const DEFAULTS: ProjectConfig = {
@@ -34,6 +42,12 @@ const DEFAULTS: ProjectConfig = {
     projectRoom: "#ctx-default:localhost",
     alertRoom: "#ctx-alerts:localhost",
     dailyTokenLimit: 50000,
+  },
+  webhook: {
+    enabled: false,
+    port: 9471,
+    secret: "",
+    branches: ["main", "master"],
   },
 };
 
