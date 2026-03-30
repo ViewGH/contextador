@@ -67,11 +67,12 @@ async function cmdInit() {
     console.log(`  Using local provider at ${serverUrl}`);
 
     const { detectProvider, configure, testConnection } = await import("./lib/providers/config");
+    // -local flag forces custom provider with local server URL
     const providerConfig = detectProvider({
-      provider: globalConfig?.provider as any,
-      apiKey: globalConfig?.apiKey ?? "",
-      baseURL: localUrl ?? globalConfig?.baseURL ?? "",
-      model: globalConfig?.model ?? "",
+      provider: "custom",
+      apiKey: "local",
+      baseURL: serverUrl,
+      model: "local-fast",
     });
     configure(providerConfig);
 
@@ -292,15 +293,11 @@ async function cmdQuery() {
   console.log(`  Routing: "${query}"\n`);
   const result = await routeQuery(root, query);
 
-  console.log(`  Targets (${result.scopes.length}):`);
-  for (const scope of result.scopes) {
-    console.log(`    → ${scope}`);
-  }
-  if (result.pointers && Object.keys(result.pointers).length > 0) {
-    console.log(`\n  Pointers:`);
-    for (const [key, value] of Object.entries(result.pointers)) {
-      console.log(`    ${key}: ${JSON.stringify(value)}`);
-    }
+  console.log(`  Routed to: ${result.targetRole}:${result.targetScope}`);
+  console.log(`  Fan out: ${result.fanOut}`);
+  console.log(`  Targets (${result.targets.length}):`);
+  for (const target of result.targets) {
+    console.log(`    → ${target.scope}`);
   }
   console.log("");
 }
