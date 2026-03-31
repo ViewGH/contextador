@@ -11,6 +11,7 @@ interface GlobalConfig {
   apiKey: string;
   baseURL: string;
   model: string;
+  framework: string;
   mainframe: {
     enabled: boolean;
     operatorUrl: string;
@@ -110,6 +111,42 @@ async function selectProvider(
     baseURL: baseURL.trim(),
     model: model.trim(),
   };
+}
+
+async function selectFramework(
+  ask: (q: string) => Promise<string>,
+): Promise<string> {
+  heading("Agent Framework");
+
+  console.log(`  ${c.bold("What agent framework are you using?")}\n`);
+  console.log(`  ${c.purple("1)")} ${c.white("Claude Code / Cursor")} ${c.gray("(MCP)")}`);
+  console.log(`  ${c.purple("2)")} ${c.white("OpenClaw")}`);
+  console.log(`  ${c.purple("3)")} ${c.white("Hermes")} ${c.gray("(Nous Research)")}`);
+  console.log(`  ${c.purple("4)")} ${c.white("Other / None")}`);
+  console.log("");
+
+  const choice = await ask(`  ${c.purple("›")} `);
+
+  const frameworks: Record<string, string> = {
+    "1": "claude-code",
+    "2": "openclaw",
+    "3": "hermes",
+    "4": "other",
+  };
+
+  const selected = frameworks[choice.trim()] ?? "other";
+
+  const labels: Record<string, string> = {
+    "claude-code": "Claude Code / Cursor (MCP)",
+    "openclaw": "OpenClaw",
+    "hermes": "Hermes (Nous Research)",
+    "other": "Other / None",
+  };
+
+  success(`Framework: ${c.lpurple(labels[selected] ?? selected)}`);
+  console.log("");
+
+  return selected;
 }
 
 async function setupMainframe(
@@ -266,11 +303,13 @@ export async function runSetup(): Promise<void> {
 
   try {
     const providerConfig = await selectProvider(ask);
+    const framework = await selectFramework(ask);
     const mainframeConfig = await setupMainframe(ask);
 
     await mkdir(CONFIG_DIR, { recursive: true });
     const config: GlobalConfig = {
       ...providerConfig,
+      framework,
       mainframe: mainframeConfig,
     };
     await writeFile(CONFIG_PATH, JSON.stringify(config, null, 2) + "\n", "utf-8");

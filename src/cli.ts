@@ -144,6 +144,19 @@ async function cmdInit() {
     success("Created .mcp.json");
   }
 
+  // Generate framework-specific config
+  if (globalConfig?.framework === "openclaw") {
+    const { generateOpenClawSkill } = await import("./lib/frameworks/openclaw");
+    const skillDir = join(root, "skills", "contextador");
+    await mkdir(skillDir, { recursive: true });
+    await writeFile(join(skillDir, "SKILL.md"), generateOpenClawSkill(), "utf-8");
+    success("Created OpenClaw skill: skills/contextador/SKILL.md");
+  } else if (globalConfig?.framework === "hermes") {
+    const { generateHermesToolGuide } = await import("./lib/frameworks/hermes");
+    await writeFile(join(root, "CONTEXTADOR_HERMES.md"), generateHermesToolGuide(), "utf-8");
+    success("Created Hermes guide: CONTEXTADOR_HERMES.md");
+  }
+
   divider();
   success("Initialized. Your codebase is mapped.");
   console.log("");
