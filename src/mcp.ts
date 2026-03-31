@@ -89,6 +89,76 @@ function text(content: string) {
   return { content: [{ type: "text" as const, text: content }] };
 }
 
+// Background sweep — runs repair queue without blocking the agent
+let sweepInProgress = false;
+
+async function triggerBackgroundSweep(reason: string) {
+  if (sweepInProgress) return; // Don't stack sweeps
+  sweepInProgress = true;
+  try {
+    // Only process repair queue + freshness, not the full 5-stage sweep
+    const { processRepairQueue, freshnessSweep } = await import("./lib/core/janitor");
+    await processRepairQueue(ROOT);
+    await freshnessSweep(ROOT);
+  } catch {} finally {
+    sweepInProgress = false;
+  }
+}
+
+// Enrich a CONTEXT.md with details from the agent's exploration
+// When an agent reports missing files, we read those files and add descriptions
+async function enrichFromFeedback(scope: string, missingFiles: string[], detail?: string) {
+  const { readFile: rf, writeFile: wf } = await import("fs/promises");
+  const contextPath = join(ROOT, scope, "CONTEXT.md");
+
+  let content: string;
+  try {
+    content = await rf(contextPath, "utf-8");
+  } catch {
+    return; // No CONTEXT.md to enrich — repair queue will create it
+  }
+
+  // For each missing file, try to read it and add a description to Key Files
+  for (const filePath of missingFiles) {
+    const fullPath = join(ROOT, filePath);
+    try {
+      const fileContent = await rf(fullPath, "utf-8");
+      // Extract a one-line description from the file
+      const firstComment = fileContent.match(/^(?:\/\/|#|\/\*|\*|"""|''')\s*(.+)/m);
+      const firstExport = fileContent.match(/export (?:class|function|const|interface) (\w+)/);
+      const desc = firstComment?.[1]?.trim()
+        ?? (firstExport ? `Exports ${firstExport[1]}` : "")
+        ?? "";
+
+      // Only add if not already in Key Files
+      const fileName = filePath.split("/").pop() ?? filePath;
+      if (!content.includes(fileName)) {
+        const entry = desc ? `- \`${fileName}\` — ${desc}` : `- \`${fileName}\``;
+        const keyFilesMatch = content.match(/(## Key Files\s*\n)([\s\S]*?)(\n## |\n*$)/m);
+        if (keyFilesMatch) {
+          content = content.replace(keyFilesMatch[0], `${keyFilesMatch[1]}${keyFilesMatch[2].trimEnd()}\n${entry}\n${keyFilesMatch[3]}`);
+        } else {
+          content = content.trimEnd() + `\n\n## Key Files\n${entry}\n`;
+        }
+      }
+    } catch {} // File doesn't exist or can't be read
+  }
+
+  // If the agent provided detail about what it learned, add as a note
+  if (detail && detail.length > 20) {
+    // Check if there's an Architecture or Notes section
+    if (!content.includes("## Notes")) {
+      content = content.trimEnd() + `\n\n## Notes\n- ${detail}\n`;
+    } else {
+      content = content.replace(/(## Notes\s*\n)([\s\S]*?)(\n## |\n*$)/m, (match, heading, body, end) => {
+        return `${heading}${body.trimEnd()}\n- ${detail}\n${end}`;
+      });
+    }
+  }
+
+  await wf(contextPath, content, "utf-8");
+}
+
 // ---------------------------------------------------------------------------
 // MCP Server
 // ---------------------------------------------------------------------------
@@ -132,10 +202,30 @@ server.tool(
     const results: string[] = [];
     const pointersMap: Record<string, unknown> = {};
 
+    let needsSweep = false;
+
     for (const target of route.targets) {
       try {
         const content = await readContextFile(target.contextPath);
-        if (!content) continue;
+        if (!content) {
+          // Missing CONTEXT.md — queue for repair and flag for background sweep
+          results.push(`[${target.scope || "(root)"}]\n*No CONTEXT.md — queued for generation. Will be available on next query.*`);
+          try {
+            const { addToRepairQueue } = await import("./lib/core/feedback");
+            // Queue via the repair mechanism
+            const { mkdir: mkdirFs, readFile: rf, writeFile: wf } = await import("fs/promises");
+            const queuePath = join(ROOT, ".contextador", "repair-queue.json");
+            await mkdirFs(join(ROOT, ".contextador"), { recursive: true });
+            let queue: any[] = [];
+            try { queue = JSON.parse(await rf(queuePath, "utf-8")); } catch {}
+            if (!queue.some((e: any) => e.scope === target.scope)) {
+              queue.push({ scope: target.scope, reason: "missing_context:auto", addedAt: new Date().toISOString().split("T")[0] });
+              await wf(queuePath, JSON.stringify(queue, null, 2), "utf-8");
+            }
+          } catch {}
+          needsSweep = true;
+          continue;
+        }
         const pointers = extractPointers(content, target.scope || "(root)");
         const serialized = serializePointers(pointers);
         results.push(serialized);
@@ -144,6 +234,11 @@ server.tool(
         // Record hit
         await recordHit(target.contextPath, queryHash).catch(() => {});
       } catch {}
+    }
+
+    // If any scopes were missing CONTEXT.md, trigger background sweep
+    if (needsSweep) {
+      triggerBackgroundSweep("missing CONTEXT.md detected during query");
     }
 
     const output = results.length > 0
@@ -183,12 +278,21 @@ server.tool(
     missingFiles: z.array(z.string()).optional().describe("Files that should be in Key Files but aren't"),
   },
   async ({ scope, type, detail, missingFiles }) => {
+    // Record feedback (adds to Key Files, increments counter, queues repair)
     await processFeedback(ROOT, {
       type: type as FeedbackType,
       scope,
       detail,
       missingFiles,
     });
+
+    // Enrich CONTEXT.md with the agent's exploration results
+    if (missingFiles && missingFiles.length > 0) {
+      await enrichFromFeedback(scope, missingFiles, detail);
+    }
+
+    // Trigger background sweep to process repair queue
+    triggerBackgroundSweep(`feedback: ${type} in ${scope}`);
 
     // Notify mainframe
     if (mainframe && !mainframePaused) {
@@ -201,7 +305,7 @@ server.tool(
       } catch {}
     }
 
-    return text(`Feedback recorded for ${scope}: ${type}${detail ? ` — ${detail}` : ""}`);
+    return text(`Feedback recorded for ${scope}: ${type}${detail ? ` — ${detail}` : ""}. Context enriched and background sweep queued.`);
   },
 );
 
