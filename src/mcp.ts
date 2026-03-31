@@ -130,10 +130,15 @@ async function enrichFromFeedback(scope: string, missingFiles: string[], detail?
         ?? (firstExport ? `Exports ${firstExport[1]}` : "")
         ?? "";
 
-      // Only add if not already in Key Files
+      // Add or update the file entry in Key Files
       const fileName = filePath.split("/").pop() ?? filePath;
-      if (!content.includes(fileName)) {
-        const entry = desc ? `- \`${fileName}\` — ${desc}` : `- \`${fileName}\``;
+      const entry = desc ? `- \`${fileName}\` — ${desc}` : `- \`${fileName}\``;
+
+      // If the file is already listed (with or without path prefix), replace it
+      const existingPattern = new RegExp(`^- \`(?:.*\\/)?${fileName}\`.*$`, "m");
+      if (existingPattern.test(content)) {
+        content = content.replace(existingPattern, entry);
+      } else {
         const keyFilesMatch = content.match(/(## Key Files\s*\n)([\s\S]*?)(\n## |\n*$)/m);
         if (keyFilesMatch) {
           content = content.replace(keyFilesMatch[0], `${keyFilesMatch[1]}${keyFilesMatch[2].trimEnd()}\n${entry}\n${keyFilesMatch[3]}`);
@@ -286,13 +291,26 @@ server.tool(
       missingFiles,
     });
 
-    // Enrich CONTEXT.md with the agent's exploration results
-    if (missingFiles && missingFiles.length > 0) {
-      await enrichFromFeedback(scope, missingFiles, detail);
+    // Trigger background sweep first to create any missing CONTEXT.md stubs
+    // Then enrich with the agent's exploration results (runs after sweep)
+    const doEnrich = missingFiles && missingFiles.length > 0;
+    if (doEnrich || type !== "missing_context") {
+      // Run sweep synchronously first to create stubs, then enrich
+      if (!sweepInProgress) {
+        sweepInProgress = true;
+        try {
+          const { processRepairQueue } = await import("./lib/core/janitor");
+          await processRepairQueue(ROOT);
+        } catch {} finally {
+          sweepInProgress = false;
+        }
+      }
     }
 
-    // Trigger background sweep to process repair queue
-    triggerBackgroundSweep(`feedback: ${type} in ${scope}`);
+    // NOW enrich — after sweep created the stub
+    if (doEnrich) {
+      await enrichFromFeedback(scope, missingFiles!, detail);
+    }
 
     // Notify mainframe
     if (mainframe && !mainframePaused) {
