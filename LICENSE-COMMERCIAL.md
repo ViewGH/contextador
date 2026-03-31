@@ -6,7 +6,7 @@ If your use case requires a commercial license (e.g., you want to modify Context
 
 ## Contact
 
-Email: licensing@view-ai.com
+Email: will@view-ai.com
 
 ## What the commercial license provides
 
