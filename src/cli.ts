@@ -554,6 +554,23 @@ function cmdHelp() {
   console.log("");
 }
 
+function cmdCredits() {
+  console.log("");
+  console.log(c.purple("  ╔══════════════════════════════════════════╗"));
+  console.log(c.purple("  ║") + "                                          " + c.purple("║"));
+  console.log(c.purple("  ║") + c.bpurple("        ✦  C O N T E X T A D O R  ✦       ") + c.purple("║"));
+  console.log(c.purple("  ║") + "                                          " + c.purple("║"));
+  console.log(c.purple("  ║") + "                                          " + c.purple("║"));
+  console.log(c.purple("  ║") + `        Created by: ${c.bold("Will Ott")}              ` + c.purple("║"));
+  console.log(c.purple("  ║") + "                                          " + c.purple("║"));
+  console.log(c.purple("  ║") + `     ${c.gray("\"The wizard sees all context.\"")}        ` + c.purple("║"));
+  console.log(c.purple("  ║") + "                                          " + c.purple("║"));
+  console.log(c.purple("  ║") + `           ${c.lpurple("◆")} ${c.gray("View AI")} ${c.lpurple("◆")}                   ` + c.purple("║"));
+  console.log(c.purple("  ║") + "                                          " + c.purple("║"));
+  console.log(c.purple("  ╚══════════════════════════════════════════╝"));
+  console.log("");
+}
+
 // ── Dispatch ─────────────────────────────────────────────────────
 
 switch (command) {
@@ -565,6 +582,7 @@ switch (command) {
   case "configure": await cmdConfigure(); break;
   case "webhook":   await cmdWebhook(); break;
   case "demolish":  await cmdDemolish(); break;
+  case "credits":   cmdCredits(); break;
   case "help":
   case "--help":
   case "-h":
