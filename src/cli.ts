@@ -536,6 +536,38 @@ async function cmdWebhook() {
   }
 }
 
+async function cmdStats() {
+  banner();
+  const { loadStats, estimateTokensSaved } = await import("./lib/core/stats");
+  const { findContextFiles } = await import("./lib/core/hierarchy");
+
+  const stats = await loadStats(root);
+  const contextFiles = await findContextFiles(root);
+  const est = estimateTokensSaved(stats);
+  const cacheRate = stats.queriesServed > 0 ? Math.round((stats.cacheHits / stats.queriesServed) * 100) : 0;
+
+  heading("Usage Stats");
+
+  stat("Queries served", stats.queriesServed, "purple");
+  stat("Cache hits (Mainframe)", `${stats.cacheHits}${stats.queriesServed > 0 ? `  (${cacheRate}%)` : ""}`, "green");
+  stat("Feedback reports", stats.feedbackReports);
+  stat("Sweeps run", stats.sweepsRun);
+
+  divider();
+
+  stat("Tokens saved (est.)", `~${est.saved.toLocaleString()}`, "green");
+  stat("Tokens used (init)", `~${stats.tokensUsedInit.toLocaleString()}`);
+  stat("Tokens used (queries)", `~${stats.tokensUsedQueries.toLocaleString()}`);
+  stat("Net savings", `~${est.net.toLocaleString()}`, est.net > 0 ? "green" : "red");
+
+  divider();
+
+  stat("CONTEXT.md files", contextFiles.length, "purple");
+  if (stats.firstUsed) stat("First used", stats.firstUsed.slice(0, 10));
+  if (stats.lastUsed) stat("Last used", stats.lastUsed.slice(0, 10));
+  console.log("");
+}
+
 function cmdHelp() {
   banner();
   console.log(`  ${c.bold("Usage:")} contextador ${c.purple("<command>")} ${c.gray("[flags]")}\n`);
@@ -547,6 +579,7 @@ function cmdHelp() {
   console.log(`    ${c.bold("sweep")}        ${c.gray("Run the janitor: refresh stale files, sync docs")}`);
   console.log(`    ${c.bold("status")}       ${c.gray("Show CONTEXT.md counts, provider, mainframe status")}`);
   console.log(`    ${c.bold("query")} ${c.purple("<q>")}    ${c.gray("Route a query and show matching scopes")}`);
+  console.log(`    ${c.bold("stats")}        ${c.gray("Show usage statistics and token savings")}`);
   console.log(`    ${c.bold("configure")}    ${c.gray("Interactive project config editor")}`);
   console.log(`    ${c.bold("webhook")}      ${c.gray("GitHub push webhook — auto-update context on push")}`);
   console.log(`    ${c.bold("update")}       ${c.gray("Check for and install the latest version")}`);
@@ -635,6 +668,7 @@ switch (command) {
   case "sweep":     await cmdSweep(); break;
   case "status":    await cmdStatus(); break;
   case "query":     await cmdQuery(); break;
+  case "stats":     await cmdStats(); break;
   case "configure": await cmdConfigure(); break;
   case "webhook":   await cmdWebhook(); break;
   case "update":    await cmdUpdate(); break;

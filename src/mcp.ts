@@ -9,6 +9,7 @@ import { hashKeywords, recordHit } from "./lib/core/hitlog";
 import { processFeedback, type FeedbackType } from "./lib/core/feedback";
 import { runJanitor } from "./lib/core/janitor";
 import { findContextFiles, readContextFile } from "./lib/core/hierarchy";
+import { recordQuery, recordFeedback, recordSweep, loadStats, formatStats } from "./lib/core/stats";
 import { checkFreshness } from "./lib/core/freshness";
 import { summarizeDirectory } from "./lib/core/generator";
 import { routeQuery } from "./lib/core/headmaster";
@@ -193,9 +194,9 @@ server.tool(
       try {
         const cached = await mainframe.checkHistory(queryHash);
         if (cached) {
-          return text(
-            `[mainframe cache hit]\n\n${typeof cached === "string" ? cached : JSON.stringify(cached, null, 2)}`,
-          );
+          const cachedOutput = `[mainframe cache hit]\n\n${typeof cached === "string" ? cached : JSON.stringify(cached, null, 2)}`;
+          await recordQuery(ROOT, cachedOutput.length, true).catch(() => {});
+          return text(cachedOutput);
         }
       } catch {}
     }
@@ -264,6 +265,8 @@ server.tool(
       } catch {}
     }
 
+    await recordQuery(ROOT, output.length, false).catch(() => {});
+
     const prefix = route.fanOut
       ? `[fan-out: ${route.targets.length} scopes]\n\n`
       : "";
@@ -290,6 +293,8 @@ server.tool(
       detail,
       missingFiles,
     });
+
+    await recordFeedback(ROOT).catch(() => {});
 
     // Trigger background sweep first to create any missing CONTEXT.md stubs
     // Then enrich with the agent's exploration results (runs after sweep)
@@ -419,6 +424,7 @@ server.tool(
 
     try {
       const state = await runJanitor(ROOT);
+      await recordSweep(ROOT).catch(() => {});
 
       const lines: string[] = [];
       lines.push(`Janitor completed at ${state.lastRun}`);
@@ -444,7 +450,19 @@ server.tool(
   },
 );
 
-// 5. context_init — scaffold project
+// 5. context_stats — usage statistics
+server.tool(
+  "context_stats",
+  "Show contextador usage statistics — queries served, tokens saved, cache hits.",
+  {},
+  async () => {
+    const stats = await loadStats(ROOT);
+    const contextFiles = await findContextFiles(ROOT);
+    return text(formatStats(stats, contextFiles.length));
+  },
+);
+
+// 6. context_init — scaffold project
 server.tool(
   "context_init",
   "Initialize contextador in a project: create .contextador/ directory, generate root CONTEXT.md, and detect initial scopes.",

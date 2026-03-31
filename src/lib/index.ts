@@ -14,6 +14,7 @@ export { shouldUseContextador, countCodeFiles } from "./core/sizecheck";
 export { loadConfig, saveConfig, getDefaults } from "./core/projectconfig";
 export { demolish, isContextadorGenerated } from "./core/demolish";
 export { generateContextContent, summarizeDirectory } from "./core/generator";
+export { loadStats, saveStats, recordQuery, recordFeedback, recordInit, recordSweep, estimateTokensSaved, formatStats } from "./core/stats";
 
 // Providers
 export { detectProvider, configure, getConfig, getModel, createClient, testConnection } from "./providers/config";
