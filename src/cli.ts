@@ -549,8 +549,64 @@ function cmdHelp() {
   console.log(`    ${c.bold("query")} ${c.purple("<q>")}    ${c.gray("Route a query and show matching scopes")}`);
   console.log(`    ${c.bold("configure")}    ${c.gray("Interactive project config editor")}`);
   console.log(`    ${c.bold("webhook")}      ${c.gray("GitHub push webhook — auto-update context on push")}`);
+  console.log(`    ${c.bold("update")}       ${c.gray("Check for and install the latest version")}`);
   console.log(`    ${c.bold("demolish")}     ${c.gray("Remove all contextador artifacts from the project")}`);
   console.log(`    ${c.bold("help")}         ${c.gray("Show this help message")}`);
+  console.log("");
+}
+
+async function cmdUpdate() {
+  banner();
+  heading("Update");
+
+  step("Checking current version...");
+  const pkg = await import("../package.json");
+  const currentVersion = pkg.version ?? "unknown";
+  stepDone();
+  info(`Current: ${c.lpurple(currentVersion)}`);
+
+  step("Checking for updates...");
+  try {
+    const proc = Bun.spawn(["npm", "view", "contextador", "version", "--json"], {
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const output = await new Response(proc.stdout).text();
+    await proc.exited;
+
+    const latestVersion = JSON.parse(output.trim());
+    stepDone();
+    info(`Latest:  ${c.lpurple(latestVersion)}`);
+
+    if (currentVersion === latestVersion) {
+      console.log("");
+      success("Already on the latest version.");
+      console.log("");
+      return;
+    }
+
+    console.log("");
+    step(`Updating to ${c.bold(latestVersion)}...`);
+    const updateProc = Bun.spawn(["bun", "install", "-g", `contextador@${latestVersion}`], {
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    await updateProc.exited;
+
+    if (updateProc.exitCode === 0) {
+      stepDone();
+      divider();
+      success(`Updated to ${c.lpurple(latestVersion)}`);
+    } else {
+      stepFail();
+      const stderr = await new Response(updateProc.stderr).text();
+      error(stderr.slice(0, 200));
+      info("Try manually: " + c.purple(`bun install -g contextador@${latestVersion}`));
+    }
+  } catch (err: any) {
+    stepFail(err.message);
+    info("Try manually: " + c.purple("bun install -g contextador@latest"));
+  }
   console.log("");
 }
 
@@ -581,6 +637,7 @@ switch (command) {
   case "query":     await cmdQuery(); break;
   case "configure": await cmdConfigure(); break;
   case "webhook":   await cmdWebhook(); break;
+  case "update":    await cmdUpdate(); break;
   case "demolish":  await cmdDemolish(); break;
   case "credits":   cmdCredits(); break;
   case "help":

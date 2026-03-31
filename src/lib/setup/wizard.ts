@@ -1,6 +1,7 @@
 import { mkdir, writeFile, readFile } from "fs/promises";
 import { join, resolve } from "path";
 import readline from "readline";
+import { banner, heading, success, error, warn, info, step, stepDone, stepFail, divider, c } from "../ui";
 
 const CONFIG_DIR = join(process.env.HOME ?? "~", ".contextador");
 const CONFIG_PATH = join(CONFIG_DIR, "config.json");
@@ -26,28 +27,22 @@ function createRL(): { ask: (q: string) => Promise<string>; close: () => void } 
   };
 }
 
-function banner() {
-  console.log("");
-  console.log("  ◆ Contextador — by View AI");
-  console.log("  Codebase context system for AI agents");
-  console.log("");
-}
-
 async function selectProvider(
   ask: (q: string) => Promise<string>,
 ): Promise<{ provider: string; apiKey: string; baseURL: string; model: string }> {
-  console.log("  ─── AI Provider ───\n");
-  console.log("  Select your AI provider:");
-  console.log("  1) Anthropic (Claude)");
-  console.log("  2) OpenAI (GPT)");
-  console.log("  3) Google (Gemini)");
-  console.log("  4) GitHub Copilot");
-  console.log("  5) OpenRouter (100+ models)");
-  console.log("  6) Custom server (Ollama, LM Studio, etc.)");
-  console.log("  7) Claude Code (no API key needed)");
+  heading("AI Provider");
+
+  console.log(`  ${c.bold("Select your AI provider:")}\n`);
+  console.log(`  ${c.purple("1)")} ${c.white("Anthropic")} ${c.gray("(Claude)")}`);
+  console.log(`  ${c.purple("2)")} ${c.white("OpenAI")} ${c.gray("(GPT)")}`);
+  console.log(`  ${c.purple("3)")} ${c.white("Google")} ${c.gray("(Gemini)")}`);
+  console.log(`  ${c.purple("4)")} ${c.white("GitHub Copilot")}`);
+  console.log(`  ${c.purple("5)")} ${c.white("OpenRouter")} ${c.gray("(100+ models)")}`);
+  console.log(`  ${c.purple("6)")} ${c.white("Custom server")} ${c.gray("(Ollama, LM Studio, etc.)")}`);
+  console.log(`  ${c.purple("7)")} ${c.white("Claude Code")} ${c.gray("(no API key needed)")}`);
   console.log("");
 
-  const choice = await ask("  > ");
+  const choice = await ask(`  ${c.purple("›")} `);
 
   const providers: Record<
     string,
@@ -56,19 +51,9 @@ async function selectProvider(
     "1": { provider: "anthropic", needsKey: true, keyName: "Anthropic API Key", needsURL: false },
     "2": { provider: "openai", needsKey: true, keyName: "OpenAI API Key", needsURL: false },
     "3": { provider: "google", needsKey: true, keyName: "Google API Key", needsURL: false },
-    "4": {
-      provider: "copilot",
-      needsKey: true,
-      keyName: "GitHub Token (with Copilot access)",
-      needsURL: false,
-    },
+    "4": { provider: "copilot", needsKey: true, keyName: "GitHub Token (with Copilot access)", needsURL: false },
     "5": { provider: "openrouter", needsKey: true, keyName: "OpenRouter API Key", needsURL: false },
-    "6": {
-      provider: "custom",
-      needsKey: true,
-      keyName: "API Key (or press Enter for none)",
-      needsURL: true,
-    },
+    "6": { provider: "custom", needsKey: true, keyName: "API Key (or press Enter for none)", needsURL: true },
     "7": { provider: "claude-code", needsKey: false, keyName: "", needsURL: false },
   };
 
@@ -78,19 +63,20 @@ async function selectProvider(
   let model = "";
 
   if (selected.needsKey) {
-    apiKey = await ask(`  ${selected.keyName}: `);
+    apiKey = await ask(`  ${c.purple("›")} ${selected.keyName}: `);
   }
 
   if (selected.needsURL) {
-    baseURL = await ask("  Server URL [http://127.0.0.1:8089/v1]: ");
+    baseURL = await ask(`  ${c.purple("›")} Server URL ${c.gray("[http://127.0.0.1:8089/v1]")}: `);
     if (!baseURL.trim()) baseURL = "http://127.0.0.1:8089/v1";
-    model = await ask("  Model name [default]: ");
+    model = await ask(`  ${c.purple("›")} Model name ${c.gray("[default]")}: `);
     if (!model.trim()) model = "default";
   }
 
-  // Test connection for providers that need an API key
+  console.log("");
+
   if (selected.provider !== "claude-code") {
-    process.stdout.write("  Testing connection... ");
+    step("Testing connection...");
     try {
       const { detectProvider, configure, testConnection } = await import("../providers/config");
       const config = detectProvider({
@@ -102,19 +88,19 @@ async function selectProvider(
       configure(config);
       const result = await testConnection();
       if (result.ok) {
-        console.log(`✓ Connected (${config.model})`);
+        stepDone();
+        info(`Provider: ${c.lpurple(config.provider)} ${c.gray(`(${config.model})`)}`);
       } else {
-        console.log(`✗ ${result.error}`);
-        console.log(
-          "  Continuing anyway — you can fix this later with 'contextador setup'",
-        );
+        stepFail(result.error);
+        warn("You can fix this later with " + c.purple("contextador setup"));
       }
     } catch (err: any) {
-      console.log(`✗ ${err.message}`);
-      console.log("  Continuing anyway — you can fix this later with 'contextador setup'");
+      stepFail(err.message);
+      warn("You can fix this later with " + c.purple("contextador setup"));
     }
   } else {
-    console.log("  ✓ Claude Code selected — no API key needed");
+    success("Claude Code selected — no API key needed");
+    info("Contextador will use Claude Code as the AI via MCP tools");
   }
 
   console.log("");
@@ -129,26 +115,29 @@ async function selectProvider(
 async function setupMainframe(
   ask: (q: string) => Promise<string>,
 ): Promise<GlobalConfig["mainframe"]> {
-  console.log("  ─── Mainframe (Multi-Agent Sharing) ───\n");
-  console.log("  Enable Mainframe? Agents on different machines share");
-  console.log("  context discoveries, saving tokens on repeat queries.\n");
+  heading("Mainframe");
 
-  const enable = await ask("  Enable Mainframe? (yes/no) [no]: ");
+  console.log(`  ${c.bold("Multi-agent context sharing")}`);
+  console.log(`  ${c.gray("Agents on different machines share discoveries,")}`);
+  console.log(`  ${c.gray("saving tokens on repeat queries.")}\n`);
+
+  const enable = await ask(`  ${c.purple("›")} Enable Mainframe? ${c.gray("(yes/no) [no]")}: `);
   const wantsMainframe =
     enable.trim().toLowerCase() === "yes" || enable.trim().toLowerCase() === "y";
 
   if (!wantsMainframe) {
-    console.log("  Mainframe disabled.\n");
+    info("Mainframe disabled — single-agent mode.");
+    console.log("");
     return { enabled: false, operatorUrl: "", serverName: "", autoSetup: false };
   }
 
   console.log("");
-  console.log("  Do you have an existing Matrix server?");
-  console.log("  1) No, set one up for me (requires Docker)");
-  console.log("  2) Yes, I'll provide the URL");
+  console.log(`  ${c.bold("Operator setup:")}`);
+  console.log(`  ${c.purple("1)")} ${c.white("Set one up for me")} ${c.gray("(requires Docker)")}`);
+  console.log(`  ${c.purple("2)")} ${c.white("I have an existing Matrix server")}`);
   console.log("");
 
-  const serverChoice = await ask("  > ");
+  const serverChoice = await ask(`  ${c.purple("›")} `);
 
   if (serverChoice.trim() === "2") {
     return await setupExistingServer(ask);
@@ -160,24 +149,24 @@ async function setupMainframe(
 async function setupExistingServer(
   ask: (q: string) => Promise<string>,
 ): Promise<GlobalConfig["mainframe"]> {
-  const url = await ask("  Matrix server URL: ");
-  const serverName = await ask("  Server name: ");
+  const url = await ask(`  ${c.purple("›")} Matrix server URL: `);
+  const serverName = await ask(`  ${c.purple("›")} Server name: `);
   console.log("");
-  process.stdout.write("  Testing connection... ");
 
+  step("Testing connection...");
   try {
     const res = await fetch(`${url.trim()}/_matrix/client/versions`, {
       signal: AbortSignal.timeout(5000),
     });
     if (res.ok) {
-      console.log("✓ Connected");
+      stepDone();
     } else {
-      console.log(`✗ HTTP ${res.status}`);
-      console.log("  Continuing anyway — you can fix this later with 'contextador setup'");
+      stepFail(`HTTP ${res.status}`);
+      warn("You can fix this later with " + c.purple("contextador setup"));
     }
   } catch {
-    console.log("✗ Could not reach server");
-    console.log("  Continuing anyway — you can fix this later with 'contextador setup'");
+    stepFail("Could not reach server");
+    warn("You can fix this later with " + c.purple("contextador setup"));
   }
 
   console.log("");
@@ -190,34 +179,32 @@ async function setupExistingServer(
 }
 
 async function setupDockerOperator(): Promise<GlobalConfig["mainframe"]> {
-  process.stdout.write("  Checking Docker... ");
+  step("Checking Docker...");
 
   try {
     const proc = Bun.spawn(["docker", "info"], { stdout: "pipe", stderr: "pipe" });
     await proc.exited;
     if (proc.exitCode !== 0) {
-      console.log("✗ Docker not running");
-      console.log(
-        "  Please install and start Docker, then run 'contextador setup' again.",
-      );
-      console.log("  Or choose option 2 to use an existing Matrix server.\n");
+      stepFail("Docker not running");
+      warn("Install and start Docker, then run " + c.purple("contextador setup") + " again.");
+      info("Or choose option 2 to use an existing Matrix server.");
+      console.log("");
       return { enabled: false, operatorUrl: "", serverName: "", autoSetup: false };
     }
-    console.log("✓ Docker found");
+    stepDone();
   } catch {
-    console.log("✗ Docker not found");
-    console.log("  Install Docker: https://docs.docker.com/get-docker/");
-    console.log("  Then run 'contextador setup' again.\n");
+    stepFail("Docker not found");
+    info("Install Docker: " + c.lpurple("https://docs.docker.com/get-docker/"));
+    info("Then run " + c.purple("contextador setup") + " again.");
+    console.log("");
     return { enabled: false, operatorUrl: "", serverName: "", autoSetup: false };
   }
 
-  // Start Operator via Docker Compose
-  console.log("  Starting Operator...");
+  step("Starting Operator...");
 
   try {
     const dockerDir = resolve(import.meta.dir, "../../docker");
 
-    // Generate config from template
     const templatePath = join(dockerDir, "operator.toml");
     const template = await readFile(templatePath, "utf-8");
     const config = template.replace("{{SERVER_NAME}}", "contextador.local");
@@ -233,30 +220,27 @@ async function setupDockerOperator(): Promise<GlobalConfig["mainframe"]> {
 
     if (proc.exitCode !== 0) {
       const stderr = await new Response(proc.stderr).text();
-      console.log(`  ✗ Docker compose failed: ${stderr.slice(0, 200)}\n`);
+      stepFail(stderr.slice(0, 100));
       return { enabled: false, operatorUrl: "", serverName: "", autoSetup: false };
     }
 
-    // Wait for the server to become healthy
+    // Wait for health
     let healthy = false;
     for (let attempt = 0; attempt < 10; attempt++) {
       try {
         const res = await fetch("http://localhost:6167/_matrix/client/versions", {
           signal: AbortSignal.timeout(2000),
         });
-        if (res.ok) {
-          healthy = true;
-          break;
-        }
-      } catch {
-        // Server not ready yet
-      }
+        if (res.ok) { healthy = true; break; }
+      } catch {}
       await new Promise((r) => setTimeout(r, 2000));
     }
 
     if (healthy) {
-      console.log("  ✓ Operator running at localhost:6167");
-      console.log("  ✓ Server name: contextador.local\n");
+      stepDone();
+      success("Operator running at " + c.lpurple("localhost:6167"));
+      success("Server name: " + c.lpurple("contextador.local"));
+      console.log("");
       return {
         enabled: true,
         operatorUrl: "http://localhost:6167",
@@ -265,12 +249,12 @@ async function setupDockerOperator(): Promise<GlobalConfig["mainframe"]> {
       };
     }
 
-    console.log(
-      "  ✗ Operator started but not responding. Check: docker logs contextador-operator\n",
-    );
+    stepFail("Not responding");
+    warn("Check logs: " + c.gray("docker logs contextador-operator"));
+    console.log("");
     return { enabled: false, operatorUrl: "", serverName: "", autoSetup: false };
   } catch (err: any) {
-    console.log(`  ✗ Error: ${err.message}\n`);
+    stepFail(err.message);
     return { enabled: false, operatorUrl: "", serverName: "", autoSetup: false };
   }
 }
@@ -284,7 +268,6 @@ export async function runSetup(): Promise<void> {
     const providerConfig = await selectProvider(ask);
     const mainframeConfig = await setupMainframe(ask);
 
-    // Save config
     await mkdir(CONFIG_DIR, { recursive: true });
     const config: GlobalConfig = {
       ...providerConfig,
@@ -292,10 +275,10 @@ export async function runSetup(): Promise<void> {
     };
     await writeFile(CONFIG_PATH, JSON.stringify(config, null, 2) + "\n", "utf-8");
 
-    console.log("  ─── Done ───\n");
-    console.log(`  ✓ Configuration saved to ${CONFIG_PATH}`);
+    divider();
+    success(`Configuration saved to ${c.gray(CONFIG_PATH)}`);
     console.log("");
-    console.log("  Next: run 'contextador init' in any project to get started.");
+    info("Next: run " + c.purple("contextador init") + " in any project to get started.");
     console.log("");
   } finally {
     close();
