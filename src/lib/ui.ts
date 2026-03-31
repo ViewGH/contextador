@@ -32,7 +32,24 @@ export const c = {
   bred: (s: string) => `${BOLD}${RED}${s}${RESET}`,
 };
 
+const ART_MIN_WIDTH = 148;
+let widthTipShown = false;
+
 export function banner() {
+  const cols = process.stdout.columns ?? 80;
+
+  if (cols < ART_MIN_WIDTH) {
+    // Compact banner for narrow terminals
+    console.log("");
+    console.log(`  ${BOLD}${PURPLE}◆${RESET} ${BOLD}Contextador${RESET} ${GRAY}— by View AI${RESET}`);
+    console.log(`  ${DIM}Codebase context for AI agents${RESET}`);
+    if (!widthTipShown) {
+      console.log(`  ${DIM}Tip: widen your terminal to ${ART_MIN_WIDTH}+ columns for the full experience${RESET}`);
+      widthTipShown = true;
+    }
+    console.log("");
+    return;
+  }
   const art = `                                                                                        ....                                                   ..               ......
                                                                                      .  .  .  .                                             .......  .................
                                                                                   ...   . .  . .                                         .. .--.... ----........-----..
