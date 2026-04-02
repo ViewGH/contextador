@@ -2,11 +2,17 @@
 
 > Your AI agents are wasting money reading your code. — [View AI](https://view-ai.com)
 
+**Hitting your usage limit?** You're not using too many tokens on building things. You're burning them on *context* — agents reading dozens of files just to understand your codebase before they write a single line. That exploration eats 50-100K tokens per task. It's why you hit rate limits, why your Pro plan runs out mid-afternoon, and why running multiple agents gets expensive fast.
+
+**Contextador fixes this.**
+
 Every time you ask an AI agent to build something, it burns **50,000–100,000 tokens** just figuring out where things are. It reads 30 files. Backtracks. Reads 20 more. Grepping, guessing, exploring — before it writes a single line of code.
 
 Multiply that by every task, every agent, every developer on your team.
 
-**That's the problem Contextador solves.**
+Contextador maps your entire codebase into structured context that agents can query instantly. Instead of reading 30 files (~50K tokens), the agent asks one question and gets back exactly the 2-3 files it needs (~500 tokens).
+
+**93% fewer tokens. Same results. Fewer rate limits.**
 
 Contextador maps your entire codebase into structured context that agents can query instantly. Instead of reading 30 files (~50K tokens), the agent asks one question and gets back exactly the 2-3 files it needs (~500 tokens).
 
