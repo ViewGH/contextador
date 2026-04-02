@@ -7,7 +7,7 @@ services:
     container_name: contextador-operator
     restart: unless-stopped
     ports:
-      - "${OPERATOR_PORT:-6167}:6167"
+      - "127.0.0.1:${OPERATOR_PORT:-6167}:6167"
     volumes:
       - operator-data:/data/operator
       - ./operator.generated.toml:/config/operator.toml:ro

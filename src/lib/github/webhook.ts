@@ -280,6 +280,7 @@ async function handleWebhook(
 export async function startWebhookServer(
   root: string,
   configOverrides?: Partial<WebhookConfig>,
+  options?: { noVerify?: boolean },
 ): Promise<{ server: ReturnType<typeof Bun.serve>; port: number }> {
   const projectConfig = await loadConfig(root);
   const webhookConfig: WebhookConfig = {
@@ -287,6 +288,13 @@ export async function startWebhookServer(
     ...(projectConfig as any).webhook,
     ...configOverrides,
   };
+
+  if (!webhookConfig.secret && !options?.noVerify) {
+    throw new Error(
+      "Webhook secret is not configured. Set 'webhook.secret' in .contextador/config.json " +
+      "or pass --no-verify to start without signature verification (NOT recommended for production)."
+    );
+  }
 
   const server = Bun.serve({
     port: webhookConfig.port,

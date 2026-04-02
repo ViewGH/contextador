@@ -1,4 +1,4 @@
-import { mkdir, writeFile, readFile } from "fs/promises";
+import { mkdir, writeFile, readFile, chmod } from "fs/promises";
 import { join, resolve } from "path";
 import readline from "readline";
 import { banner, heading, success, error, warn, info, step, stepDone, stepFail, divider, c } from "../ui";
@@ -313,6 +313,7 @@ export async function runSetup(): Promise<void> {
       mainframe: mainframeConfig,
     };
     await writeFile(CONFIG_PATH, JSON.stringify(config, null, 2) + "\n", "utf-8");
+    await chmod(CONFIG_PATH, 0o600);
 
     divider();
     success(`Configuration saved to ${c.gray(CONFIG_PATH)}`);

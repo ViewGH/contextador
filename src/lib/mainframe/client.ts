@@ -10,18 +10,27 @@ function randomId(len = 4): string {
   return out;
 }
 
+function randomPassword(len = 32): string {
+  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let out = "";
+  for (let i = 0; i < len; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
+
 export class MatrixClient {
   readonly serverUrl: string;
   readonly agentId: string;
+  readonly password: string;
 
   private accessToken: string | null = null;
   private userId: string | null = null;
   private retryTimer: ReturnType<typeof setInterval> | null = null;
   private txnCounter = 0;
 
-  constructor(serverUrl: string, agentId?: string) {
+  constructor(serverUrl: string, agentId?: string, password?: string) {
     this.serverUrl = serverUrl;
     this.agentId = agentId ?? `ctx-${randomId(4)}`;
+    this.password = password ?? randomPassword();
   }
 
   // ── Auth ──────────────────────────────────────────────────────────
@@ -29,7 +38,7 @@ export class MatrixClient {
   /** Try login, fall back to register. */
   async connect(): Promise<void> {
     const username = this.agentId;
-    const password = this.agentId;
+    const password = this.password;
 
     try {
       await this.login(username, password);

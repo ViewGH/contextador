@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir } from "fs/promises";
+import { readFile, writeFile, mkdir, chmod } from "fs/promises";
 import { join } from "path";
 
 export interface MainframeSettings {
@@ -67,9 +67,11 @@ export async function loadConfig(root: string): Promise<ProjectConfig> {
 
 export async function saveConfig(root: string, config: ProjectConfig): Promise<void> {
   await mkdir(join(root, ".contextador"), { recursive: true });
+  const configPath = join(root, ".contextador", "config.json");
   await writeFile(
-    join(root, ".contextador", "config.json"),
+    configPath,
     JSON.stringify(config, null, 2) + "\n",
     "utf-8"
   );
+  await chmod(configPath, 0o600);
 }

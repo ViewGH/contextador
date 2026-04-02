@@ -15,26 +15,46 @@ export interface MainframeConfig {
   projectRoot?: string;
 }
 
-/** Load or create a persistent agent ID for this machine */
-async function getOrCreateAgentId(projectRoot: string): Promise<string> {
+/** Generate a random password for Matrix auth */
+function randomPassword(len = 32): string {
+  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let out = "";
+  for (let i = 0; i < len; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
+
+/** Load or create a persistent agent ID and password for this machine */
+async function getOrCreateAgentId(projectRoot: string): Promise<{ agentId: string; password: string }> {
   const idFile = join(projectRoot, ".contextador", "mainframe-agent.json");
+  let data: any = null;
   try {
     const raw = await readFile(idFile, "utf-8");
-    const data = JSON.parse(raw);
-    if (data.agentId) return data.agentId;
+    data = JSON.parse(raw);
   } catch {}
 
-  // Generate new ID and persist it
-  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-  let id = "ctx-";
-  for (let i = 0; i < 4; i++) id += chars[Math.floor(Math.random() * chars.length)];
+  if (data?.agentId && data?.password) {
+    return { agentId: data.agentId, password: data.password };
+  }
+
+  // Existing file without password, or no file at all
+  const agentId = data?.agentId ?? (() => {
+    const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+    let id = "ctx-";
+    for (let i = 0; i < 4; i++) id += chars[Math.floor(Math.random() * chars.length)];
+    return id;
+  })();
+  const password = randomPassword();
 
   try {
     await mkdir(join(projectRoot, ".contextador"), { recursive: true });
-    await writeFile(idFile, JSON.stringify({ agentId: id, createdAt: new Date().toISOString() }, null, 2), "utf-8");
+    await writeFile(idFile, JSON.stringify({
+      agentId,
+      password,
+      createdAt: data?.createdAt ?? new Date().toISOString(),
+    }, null, 2), "utf-8");
   } catch {}
 
-  return id;
+  return { agentId, password };
 }
 
 export class MainframeBridge {
@@ -57,10 +77,10 @@ export class MainframeBridge {
   async connect(): Promise<boolean> {
     if (!this.config.enabled) return false;
 
-    // Load persistent agent ID
+    // Load persistent agent ID and password
     const projectRoot = this.config.projectRoot ?? process.cwd();
-    const agentId = await getOrCreateAgentId(projectRoot);
-    this.client = new MatrixClient(this.config.operatorUrl, agentId);
+    const { agentId, password } = await getOrCreateAgentId(projectRoot);
+    this.client = new MatrixClient(this.config.operatorUrl, agentId, password);
 
     try {
       await this.client.connect();

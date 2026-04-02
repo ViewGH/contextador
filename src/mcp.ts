@@ -25,13 +25,21 @@ import { detectProvider, configure } from "./lib/providers/config";
 import { loadGlobalConfig } from "./lib/setup/wizard";
 
 import { readFile } from "fs/promises";
-import { join, basename, dirname, relative } from "path";
+import { join, basename, dirname, relative, resolve } from "path";
 
 // ---------------------------------------------------------------------------
 // Bootstrap
 // ---------------------------------------------------------------------------
 
 const ROOT = process.env.CONTEXTADOR_ROOT ?? process.cwd();
+
+function validateScope(scope: string): string {
+  const resolved = resolve(ROOT, scope);
+  if (!resolved.startsWith(resolve(ROOT))) {
+    throw new Error("Scope path escapes project root");
+  }
+  return scope;
+}
 const dirName = basename(ROOT);
 
 let mainframe: MainframeBridge | null = null;
@@ -286,6 +294,7 @@ server.tool(
     missingFiles: z.array(z.string()).optional().describe("Files that should be in Key Files but aren't"),
   },
   async ({ scope, type, detail, missingFiles }) => {
+    validateScope(scope);
     // Record feedback (adds to Key Files, increments counter, queues repair)
     await processFeedback(ROOT, {
       type: type as FeedbackType,
@@ -343,6 +352,7 @@ server.tool(
     const lines: string[] = [];
 
     if (scope) {
+      validateScope(scope);
       // Check specific scope
       const contextPath = join(ROOT, scope, "CONTEXT.md");
       try {
@@ -545,6 +555,7 @@ server.tool(
     scope: z.string().describe("Scope path relative to project root (e.g. 'src/lib/core')"),
   },
   async ({ scope }) => {
+    validateScope(scope);
     const dirPath = scope ? join(ROOT, scope) : ROOT;
     const files = await summarizeDirectory(dirPath);
 

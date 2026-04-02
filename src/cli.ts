@@ -418,13 +418,16 @@ async function cmdWebhook() {
     const secretFlag = args.find(a => a.startsWith("--secret="));
     const secretOverride = secretFlag ? secretFlag.split("=")[1] : undefined;
 
+    // Allow --no-verify to skip signature verification
+    const noVerify = args.includes("--no-verify");
+
     const overrides: Record<string, any> = {};
     if (portOverride) overrides.port = portOverride;
     if (secretOverride) overrides.secret = secretOverride;
 
     heading("Webhook Server");
 
-    const { server, port } = await startWebhookServer(root, overrides);
+    const { server, port } = await startWebhookServer(root, overrides, { noVerify });
 
     success(`Listening on port ${c.bold(String(port))}`);
     info(`Health check: ${c.lpurple(`http://localhost:${port}/health`)}`);
