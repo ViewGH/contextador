@@ -1,19 +1,35 @@
 # Contextador
 
-> Codebase context system for AI agents — by [View AI](https://view-ai.com)
+> Your AI agents are wasting money reading your code. — [View AI](https://view-ai.com)
 
-Contextador gives AI coding agents structured, efficient access to your codebase. Instead of agents scanning thousands of files to understand your code (~50-100K tokens), Contextador routes them to exactly what they need (~5K tokens). **93% token savings** on context-gathering queries.
+Every time you ask an AI agent to build something, it burns **50,000–100,000 tokens** just figuring out where things are. It reads 30 files. Backtracks. Reads 20 more. Grepping, guessing, exploring — before it writes a single line of code.
 
-## Features
+Multiply that by every task, every agent, every developer on your team.
 
-- **Context routing** — ask a question, get back the exact files, types, dependencies, and tests that answer it
-- **Self-healing docs** — CONTEXT.md files at every directory level, automatically validated and regenerated
-- **Self-improving** — hit logging tracks what works, feedback loop learns from failures
-- **Mainframe** — multi-agent context sharing via Operator (Matrix server). Agents on different machines share discoveries instead of duplicating work
-- **Dynamic hierarchy** — adapts to any repo depth, from flat projects to deep monorepos
-- **Budget controls** — per-agent and per-room token limits with kill switch
-- **Works with any AI** — Anthropic, OpenAI, Google, GitHub Copilot, OpenRouter, Ollama, or Claude Code
-- **MCP integration** — works natively with Claude Code, Cursor, and any MCP-compatible editor
+**That's the problem Contextador solves.**
+
+Contextador maps your entire codebase into structured context that agents can query instantly. Instead of reading 30 files (~50K tokens), the agent asks one question and gets back exactly the 2-3 files it needs (~500 tokens).
+
+**93% fewer tokens. Same results. Every query.**
+
+And it gets smarter every time you use it. When an agent discovers something, that knowledge feeds back into the system. When context is wrong, agents report it and Contextador fixes itself. When multiple agents work on the same codebase, they share discoveries through Mainframe — so no agent ever rediscovers what another already learned.
+
+```
+Without Contextador:    Agent reads 30 files     →  ~50,000 tokens  →  slow, expensive
+With Contextador:       Agent asks one question   →  ~500 tokens     →  instant, cheap
+With Mainframe:         Agent finds cached answer →  ~0 tokens       →  free
+```
+
+## Why It Matters
+
+- **Save money** — 93% token reduction on every context-gathering query
+- **Ship faster** — agents spend time building, not exploring
+- **Scale agents** — Mainframe prevents duplicate work across machines and developers
+- **Self-healing** — documentation stays accurate without manual maintenance
+- **Self-improving** — the system learns from every query and every failure
+- **Works everywhere** — Claude Code, Cursor, OpenClaw, Hermes, or any MCP-compatible tool
+- **Any AI provider** — Anthropic, OpenAI, Google, GitHub Copilot, OpenRouter, Ollama, or local models
+- **Your infrastructure** — runs locally, your data stays on your machines
 
 ## Quick Start
 
