@@ -177,9 +177,9 @@ const server = new McpServer({
 // 1. context — check mainframe cache first, fall back to local, broadcast result
 server.tool(
   "context",
-  "Look up contextador pointers for a query. Checks mainframe cache first, falls back to local CONTEXT.md files, then broadcasts the result.",
+  "REQUIRED: Call this tool BEFORE reading any source files. When the user asks anything about the codebase — how something works, where something is, what depends on what, or asks you to build/modify/fix anything — call this tool FIRST with your question. It returns the exact files, dependencies, and structure you need. Only read files directly if you already know the exact path. This saves ~93% of tokens compared to manual exploration.",
   {
-    query: z.string().describe("Natural language query describing what context you need"),
+    query: z.string().describe("Your question: what do you need to understand about the codebase?"),
   },
   async ({ query }) => {
     const keywords = query

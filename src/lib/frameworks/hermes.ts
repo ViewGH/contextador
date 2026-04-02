@@ -15,10 +15,14 @@ export function generateHermesMcpConfig(): Record<string, any> {
 export function generateHermesToolGuide(): string {
   return `# Contextador Integration for Hermes Agent
 
-Contextador is registered as an MCP server. Your Hermes agent will discover these tools automatically:
+## ACTIVATION RULE
 
-- \`mcp_contextador_context\` — Ask about codebase structure (USE FIRST)
-- \`mcp_contextador_context_feedback\` — Report inaccurate context
+When the user asks ANY question about the codebase, or asks you to build, modify, fix, or understand ANYTHING in the code — call \`mcp_contextador_context\` FIRST. Do not read source files until context has told you which files to read. The only exception: if you already know the exact file path.
+
+## Available Tools
+
+- \`mcp_contextador_context\` — CALL THIS FIRST for any codebase question
+- \`mcp_contextador_context_feedback\` — Report inaccurate or missing context
 - \`mcp_contextador_context_status\` — Check freshness and status
 - \`mcp_contextador_context_sweep\` — Refresh stale documentation
 - \`mcp_contextador_context_stats\` — View token savings

@@ -2,7 +2,7 @@
 export function generateOpenClawSkill(): string {
   return `---
 name: contextador
-description: Codebase context system — ask about code structure, dependencies, and file locations before reading files manually.
+description: REQUIRED before reading source files. Call the context tool for ANY question about the codebase — what something does, where it is, what to modify, what depends on what. Saves 93% of tokens.
 requirements:
   binaries:
     - contextador-mcp
@@ -10,7 +10,13 @@ requirements:
 
 # Contextador
 
-Use the contextador MCP tools for codebase orientation. Before modifying or exploring code:
+## ACTIVATION RULE
+
+When the user asks ANY question about the codebase, or asks you to build, modify, fix, or understand ANYTHING in the code — call the \`context\` tool FIRST. Do not read source files until context has told you which files to read.
+
+The only exception: if you already know the exact file path, read it directly.
+
+## How to use it
 
 1. Call the \`context\` tool with your question about the codebase
 2. Read ONLY the Key Files listed in the response
