@@ -596,6 +596,7 @@ function cmdHelp() {
   console.log(`    ${c.bold("configure")}    ${c.gray("Interactive project config editor")}`);
   console.log(`    ${c.bold("webhook")}      ${c.gray("GitHub push webhook — auto-update context on push")}`);
   console.log(`    ${c.bold("update")}       ${c.gray("Check for and install the latest version")}`);
+  console.log(`    ${c.bold("doctor")}       ${c.gray("Diagnose setup issues and check system health")}`);
   console.log(`    ${c.bold("demolish")}     ${c.gray("Remove all contextador artifacts from the project")}`);
   console.log(`    ${c.bold("help")}         ${c.gray("Show this help message")}`);
   console.log("");
@@ -656,6 +657,251 @@ async function cmdUpdate() {
   console.log("");
 }
 
+async function cmdDoctor() {
+  banner();
+  heading("Doctor");
+
+  let passed = 0;
+  let warnings = 0;
+  let failed = 0;
+  const tips: string[] = [];
+
+  // 1. Bun version
+  try {
+    success(`Bun v${Bun.version}`);
+    passed++;
+  } catch {
+    warn("Could not detect Bun version");
+    warnings++;
+  }
+
+  // 2. Global config
+  if (await fileExists(GLOBAL_CONFIG_PATH)) {
+    success("Global config found");
+    passed++;
+  } else {
+    error("Global config missing");
+    tips.push("Run " + c.purple("contextador setup") + " to create global config.");
+    failed++;
+  }
+
+  // 3. Project config
+  if (await fileExists(join(root, ".contextador", "config.json"))) {
+    success("Project config found");
+    passed++;
+  } else {
+    warn("Project not initialized in this directory");
+    tips.push("Run " + c.purple("contextador init") + " in your project.");
+    warnings++;
+  }
+
+  // 4. AI Provider
+  try {
+    const { loadGlobalConfig } = await import("./lib/setup/wizard");
+    const globalConfig = await loadGlobalConfig();
+    if (globalConfig?.provider) {
+      const { detectProvider, configure, testConnection } = await import("./lib/providers/config");
+      const providerConfig = detectProvider({
+        provider: globalConfig.provider as any,
+        apiKey: globalConfig.apiKey ?? "",
+        baseURL: globalConfig.baseURL ?? "",
+        model: globalConfig.model ?? "",
+      });
+
+      if (providerConfig.provider === "claude-code") {
+        success(`AI Provider: ${c.lpurple("Claude Code")} ${c.gray("(no API key needed)")}`);
+        passed++;
+      } else {
+        configure(providerConfig);
+        const result = await testConnection();
+        if (result.ok) {
+          success(`AI Provider: ${c.lpurple(providerConfig.provider)} ${c.gray(`(${providerConfig.model})`)} — reachable`);
+          passed++;
+        } else {
+          warn(`AI Provider: ${providerConfig.provider} — ${c.red("unreachable")}: ${result.error}`);
+          tips.push("Check your API key or server URL. Run " + c.purple("contextador setup") + " to reconfigure.");
+          warnings++;
+        }
+      }
+    } else {
+      warn("No AI provider configured");
+      tips.push("Run " + c.purple("contextador setup") + " to set up an AI provider.");
+      warnings++;
+    }
+  } catch {
+    warn("Could not check AI provider");
+    warnings++;
+  }
+
+  // 5. CONTEXT.md files
+  try {
+    const { findContextFiles } = await import("./lib/core/hierarchy");
+    const { checkFreshness } = await import("./lib/core/freshness");
+    const files = await findContextFiles(root);
+    if (files.length > 0) {
+      let fresh = 0, stale = 0;
+      for (const f of files) {
+        const check = await checkFreshness(root, f);
+        if (check.fresh) fresh++;
+        else stale++;
+      }
+      if (stale > 0) {
+        warn(`CONTEXT.md files: ${files.length} (${c.green(String(fresh))} fresh, ${c.yellow(String(stale))} stale)`);
+        tips.push("Run " + c.purple("contextador sweep") + " to refresh stale files.");
+        warnings++;
+      } else {
+        success(`CONTEXT.md files: ${c.lpurple(String(files.length))} (all fresh)`);
+        passed++;
+      }
+    } else {
+      warn("No CONTEXT.md files found");
+      tips.push("Run " + c.purple("contextador init -local") + " to generate them.");
+      warnings++;
+    }
+  } catch {
+    warn("Could not scan CONTEXT.md files");
+    warnings++;
+  }
+
+  // 6. .mcp.json
+  if (await fileExists(join(root, ".mcp.json"))) {
+    success(".mcp.json found");
+    passed++;
+  } else {
+    warn(".mcp.json missing — MCP editors won't auto-detect contextador");
+    tips.push("Run " + c.purple("contextador init") + " to create .mcp.json.");
+    warnings++;
+  }
+
+  // 7. Framework
+  try {
+    const { loadGlobalConfig } = await import("./lib/setup/wizard");
+    const globalConfig = await loadGlobalConfig();
+    const fw = globalConfig?.framework ?? "not set";
+    const labels: Record<string, string> = {
+      "claude-code": "Claude Code / Cursor",
+      "openclaw": "OpenClaw",
+      "hermes": "Hermes (Nous Research)",
+      "other": "Other",
+    };
+    success(`Framework: ${c.lpurple(labels[fw] ?? fw)}`);
+    passed++;
+  } catch {
+    warn("Could not detect framework");
+    warnings++;
+  }
+
+  // 8. Mainframe
+  try {
+    const { loadConfig } = await import("./lib/core/projectconfig");
+    const config = await loadConfig(root);
+    if (config.mainframe?.enabled) {
+      success(`Mainframe: ${c.green("enabled")}`);
+      passed++;
+
+      // Check Docker
+      try {
+        const proc = Bun.spawn(["docker", "info"], { stdout: "pipe", stderr: "pipe" });
+        await proc.exited;
+        if (proc.exitCode === 0) {
+          success("Docker: running");
+          passed++;
+        } else {
+          error("Docker: not running");
+          tips.push("Start Docker Desktop to use Mainframe.");
+          failed++;
+        }
+      } catch {
+        error("Docker: not found");
+        tips.push("Install Docker: https://docs.docker.com/get-docker/");
+        failed++;
+      }
+
+      // Check Operator
+      try {
+        const res = await fetch(`${config.mainframe.operatorUrl}/_matrix/client/versions`, {
+          signal: AbortSignal.timeout(3000),
+        });
+        if (res.ok) {
+          success(`Operator: responding at ${c.lpurple(config.mainframe.operatorUrl)}`);
+          passed++;
+        } else {
+          error(`Operator: HTTP ${res.status}`);
+          tips.push("Restart Operator: " + c.gray("docker restart contextador-operator"));
+          failed++;
+        }
+      } catch {
+        error("Operator: unreachable");
+        tips.push("Start Operator: " + c.purple("contextador setup") + " (say yes to Mainframe)");
+        failed++;
+      }
+    } else {
+      info(`Mainframe: ${c.gray("disabled")}`);
+      passed++;
+    }
+  } catch {
+    warn("Could not check Mainframe status");
+    warnings++;
+  }
+
+  // 9. Repair queue
+  try {
+    const raw = await readFile(join(root, ".contextador", "repair-queue.json"), "utf-8");
+    const queue = JSON.parse(raw);
+    if (Array.isArray(queue) && queue.length > 0) {
+      warn(`Repair queue: ${c.yellow(String(queue.length))} pending items`);
+      tips.push("Run " + c.purple("contextador sweep") + " to process the repair queue.");
+      warnings++;
+    } else {
+      success("Repair queue: empty");
+      passed++;
+    }
+  } catch {
+    success("Repair queue: empty");
+    passed++;
+  }
+
+  // 10. Stats summary
+  try {
+    const { loadStats, estimateTokensSaved } = await import("./lib/core/stats");
+    const stats = await loadStats(root);
+    if (stats.queriesServed > 0) {
+      const est = estimateTokensSaved(stats);
+      success(`Token savings: ${c.green(`~${est.net.toLocaleString()}`)} net (${stats.queriesServed} queries)`);
+      passed++;
+    } else {
+      info("No queries recorded yet");
+      passed++;
+    }
+  } catch {
+    info("No stats available");
+    passed++;
+  }
+
+  // Summary
+  divider();
+  const total = passed + warnings + failed;
+  const parts: string[] = [];
+  if (passed > 0) parts.push(c.green(`${passed} passed`));
+  if (warnings > 0) parts.push(c.yellow(`${warnings} warning${warnings > 1 ? "s" : ""}`));
+  if (failed > 0) parts.push(c.red(`${failed} failed`));
+  console.log(`  ${parts.join(", ")}`);
+
+  if (tips.length > 0) {
+    console.log("");
+    for (const tip of tips) {
+      info(tip);
+    }
+  }
+
+  if (failed === 0 && warnings === 0) {
+    console.log("");
+    success("Everything looks good!");
+  }
+
+  console.log("");
+}
+
 function cmdCredits() {
   console.log("");
   console.log(c.purple("  ╔══════════════════════════════════════════╗"));
@@ -685,6 +931,7 @@ switch (command) {
   case "configure": await cmdConfigure(); break;
   case "webhook":   await cmdWebhook(); break;
   case "update":    await cmdUpdate(); break;
+  case "doctor":    await cmdDoctor(); break;
   case "demolish":  await cmdDemolish(); break;
   case "credits":   cmdCredits(); break;
   case "help":
