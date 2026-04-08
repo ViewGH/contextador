@@ -14,10 +14,6 @@ Contextador maps your entire codebase into structured context that agents can qu
 
 **93% fewer tokens. Same results. Fewer rate limits.**
 
-Contextador maps your entire codebase into structured context that agents can query instantly. Instead of reading 30 files (~50K tokens), the agent asks one question and gets back exactly the 2-3 files it needs (~500 tokens).
-
-**93% fewer tokens. Same results. Every query.**
-
 And it gets smarter every time you use it. When an agent discovers something, that knowledge feeds back into the system. When context is wrong, agents report it and Contextador fixes itself. When multiple agents work on the same codebase, they share discoveries through Mainframe — so no agent ever rediscovers what another already learned.
 
 ```
